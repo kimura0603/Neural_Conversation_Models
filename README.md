@@ -1,31 +1,26 @@
-# Neural_Conversation_Models
+# Twitter chatbot based on Neural_Conversation_Models
 =================================
-This implementation contains an extension of seq2seq tutorial for conversation models in Tensorflow:
 
-1. Option to use Beam Search and Beam Size for decoding
-    
-2. Currently, it supports
-    - Simple seq2seq  models
-    - Attention based seq2seq models
-    
-3. To get better results use beam search during decoding / inference 
+Forked from https://github.com/pbhatia243/Neural_Conversation_Models, which implements seq2seq with beam serach and attention.
 
+Added features:
+
+- Choice of optimizer: SGD/AdaGrad/Adam
+- Mecab as tokenizer
+- Twitter chatbot
 
 Prerequisites
 -------------
 
 - Python 2.7 or Python 3.3+
 - [NLTK](http://www.nltk.org/)
-- [TensorFlow](https://www.tensorflow.org/)
+- [TensorFlow](https://www.tensorflow.org/) r0.9 (Currently doesn't work on r0.12)
+- tweepy (via pip)
+- mecab, python-mecab, mecab-ipadic-utf8 (via apt-get)
 
 Data
 -----
 Data accepted is in the tsv format where first component is the context and second is the reply
-
-TSV format Ubuntu Dialog Data can be found [here](https://drive.google.com/file/d/0BwPa9lrosQKdSTZxZ0tydUFGWE0/view)
- 
-example :-
-1. What are you doing ? \t Writing seq2seq model . 
 
 Usage
 -----
@@ -34,17 +29,7 @@ To train a model with Ubuntu dataset:
 
     $ python neural_conversation_model.py --train_dir ubuntu/ --en_vocab_size 60000 --size 512 --data_path ubuntu/train.tsv --dev_data ubuntu/valid.tsv  --vocab_path ubuntu/60k_vocan.en --attention
 
-To test an existing model:
+To run a twitter bot:
 
-    $ python neural_conversation_model.py --train_dir ubuntu/ --en_vocab_size 60000 --size 512 --data_path ubuntu/train.tsv --dev_data ubuntu/valid.tsv  --vocab_path ubuntu/60k_vocan.en --attention --decode --beam_search --beam_size 25
+    $ python twitter_bot.py
 
-
-Todo
------
-1. Add other state of art neural models. 
-2. Adding layer normalization( in progress )
-
-https://github.com/pbhatia243/tf-layer-norm
-
-## Contact
-Parminder Bhatia, parminder@yikyakapp.com
