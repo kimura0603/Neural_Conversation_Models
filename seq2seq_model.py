@@ -1,4 +1,3 @@
-
 """Sequence-to-sequence model with an attention mechanism."""
 
 
@@ -29,7 +28,8 @@ class Seq2SeqModel(object):
   def __init__(self, source_vocab_size, target_vocab_size, buckets, size,
                num_layers, max_gradient_norm, batch_size, learning_rate,
                learning_rate_decay_factor, use_lstm=False,
-               num_samples=1024, forward_only=False, beam_search = True, beam_size=10, attention=True):
+               num_samples=1024, forward_only=False, beam_search = True, beam_size=10, attention=True,
+               max_to_keep=2, optimizer='sgd'):
     """Create the model.
 
     Args:
@@ -163,7 +163,12 @@ class Seq2SeqModel(object):
     if not forward_only:
       self.gradient_norms = []
       self.updates = []
-      opt = tf.train.GradientDescentOptimizer(self.learning_rate)
+      if optimizer == 'adam':
+        opt = tf.train.AdamOptimizer(self.learning_rate)
+      elif optimizer == 'adagrad':
+        opt = tf.train.AdaGradOptimizer(self.learning_rate)
+      else:
+        opt = tf.train.GradientDescentOptimizer(self.learning_rate)
       for b in xrange(len(buckets)):
         gradients = tf.gradients(self.losses[b], params)
         clipped_gradients, norm = tf.clip_by_global_norm(gradients,
@@ -172,7 +177,7 @@ class Seq2SeqModel(object):
         self.updates.append(opt.apply_gradients(
             zip(clipped_gradients, params), global_step=self.global_step))
 
-    self.saver = tf.train.Saver(tf.all_variables())
+    self.saver = tf.train.Saver(tf.all_variables(), max_to_keep=max_to_keep)
 
   def step(self, session, encoder_inputs, decoder_inputs, target_weights,
            bucket_id, forward_only, beam_search):

@@ -1,5 +1,3 @@
-
-
 """Most of the code comes from seq2seq tutorial. Binary for training conversation models and decoding from them.
 
 Running this program without --decode will  tokenize it in a very basic way,
@@ -29,6 +27,8 @@ from  data_utils import *
 from  seq2seq_model import *
 import codecs
 
+from mecab_tokenizer import mecab_tokenizer
+
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.99,
                           "Learning rate decays by this much.")
@@ -57,6 +57,14 @@ tf.app.flags.DEFINE_boolean("attention", False,
                             "Set to True for interactive decoding.")
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
+tf.app.flags.DEFINE_string("tokenizer", None,
+                           "Tokenizer to use. mecab/others")
+tf.app.flags.DEFINE_integer("max_to_keep", 5,
+                           "Number of ckpts to keep")
+tf.app.flags.DEFINE_boolean("formatted_output", False,
+                           "TSV output in decoding")
+tf.app.flags.DEFINE_string("optimizer", "sgd",
+                           "sgd/adagrad/adam")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -64,8 +72,9 @@ FLAGS = tf.app.flags.FLAGS
 # See seq2seq_model.Seq2SeqModel for details of how they work.
 _buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
 
-
-
+tokenizer = None
+if FLAGS.tokenizer == 'mecab':
+    tokenizer = mecab_tokenizer
 
 def read_chat_data(data_path,vocabulary_path, max_size=None):
     counter = 0
@@ -86,8 +95,8 @@ def read_chat_data(data_path,vocabulary_path, max_size=None):
             if len(entities) == 2:
                 source = entities[0]
                 target = entities[1]
-                source_ids = [int(x) for x in sentence_to_token_ids(source,vocab)]
-                target_ids = [int(x) for x in sentence_to_token_ids(target,vocab)]
+                source_ids = [int(x) for x in sentence_to_token_ids(source,vocab,tokenizer=tokenizer)]
+                target_ids = [int(x) for x in sentence_to_token_ids(target,vocab,tokenizer=tokenizer)]
                 target_ids.append(EOS_ID)
                 for bucket_id, (source_size, target_size) in enumerate(_buckets):
                   if len(source_ids) < source_size and len(target_ids) < target_size:
@@ -101,13 +110,16 @@ def create_model(session, forward_only, beam_search, beam_size = 10, attention =
       FLAGS.en_vocab_size, FLAGS.en_vocab_size, _buckets,
       FLAGS.size, FLAGS.num_layers, FLAGS.max_gradient_norm, FLAGS.batch_size,
       FLAGS.learning_rate, FLAGS.learning_rate_decay_factor,
-      forward_only=forward_only, beam_search=beam_search, beam_size=beam_size, attention=attention)
+      forward_only=forward_only, beam_search=beam_search, beam_size=beam_size, attention=attention,
+      max_to_keep=FLAGS.max_to_keep, optimizer=FLAGS.optimizer)
   print FLAGS.train_dir
   ckpt = tf.train.get_checkpoint_state(FLAGS.train_dir)
+  print ckpt
 
   # ckpt.model_checkpoint_path ="./big_models/chat_bot.ckpt-183600"
   # print ckpt.model_checkpoint_path
-  if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
+#  if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
+  if ckpt:
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
     model.saver.restore(session, ckpt.model_checkpoint_path)
   else:
@@ -146,7 +158,7 @@ def train():
   attention = FLAGS.attention
 
   normalize_digits=True
-  create_vocabulary(vocab_path, data_path, FLAGS.en_vocab_size )
+  create_vocabulary(vocab_path, data_path, FLAGS.en_vocab_size, tokenizer=tokenizer)
 
 
   with tf.Session() as sess:
@@ -236,58 +248,68 @@ def decode():
 
     # Decode from standard input.
     if beam_search:
-        sys.stdout.write("> ")
-        sys.stdout.flush()
+        if not FLAGS.formatted_output:
+            sys.stdout.write("> ")
+            sys.stdout.flush()
         sentence = sys.stdin.readline()
         while sentence:
-          # Get token-ids for the input sentence.
-          token_ids = sentence_to_token_ids(tf.compat.as_bytes(sentence), vocab)
-          # Which bucket does it belong to?
-          bucket_id = min([b for b in xrange(len(_buckets))
-                           if _buckets[b][0] > len(token_ids)])
-          # Get a 1-element batch to feed the sentence to the model.
-          encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-              {bucket_id: [(token_ids, [])]}, bucket_id)
-          # Get output logits for the sentence.
-          # print bucket_id
-          path, symbol , output_logits = model.step(sess, encoder_inputs, decoder_inputs,
-                                           target_weights, bucket_id, True,beam_search )
+            # Get token-ids for the input sentence.
+            token_ids = sentence_to_token_ids(tf.compat.as_bytes(sentence), vocab, tokenizer=tokenizer)
+            if len(token_ids) >= _buckets[-1][0]:
+                token_ids = token_ids[:(_buckets[-1][0] - 1)]
+            # Which bucket does it belong to?
+            bucket_id = min([b for b in xrange(len(_buckets))
+                             if _buckets[b][0] > len(token_ids)])
+            # Get a 1-element batch to feed the sentence to the model.
+            encoder_inputs, decoder_inputs, target_weights = model.get_batch(
+                {bucket_id: [(token_ids, [])]}, bucket_id)
+            # Get output logits for the sentence.
+            # print bucket_id
+            path, symbol , output_logits = model.step(sess, encoder_inputs, decoder_inputs,
+                                                      target_weights, bucket_id, True,beam_search )
 
-          k = output_logits[0]
-          paths = []
-          for kk in range(beam_size):
-              paths.append([])
-          curr = range(beam_size)
-          num_steps = len(path)
-          for i in range(num_steps-1, -1, -1):
-              for kk in range(beam_size):
-                paths[kk].append(symbol[i][curr[kk]])
-                curr[kk] = path[i][curr[kk]]
-          recos = set()
-          print "Replies --------------------------------------->"
-          for kk in range(beam_size):
-              foutputs = [int(logit)  for logit in paths[kk][::-1]]
+            k = output_logits[0]
+            paths = []
+            for kk in range(beam_size):
+                paths.append([])
+            curr = range(beam_size)
+            num_steps = len(path)
+            for i in range(num_steps-1, -1, -1):
+                for kk in range(beam_size):
+                    paths[kk].append(symbol[i][curr[kk]])
+                    curr[kk] = path[i][curr[kk]]
+            recos = []
+            if not FLAGS.formatted_output:
+                print "Replies --------------------------------------->"
+            for kk in range(beam_size):
+                foutputs = [int(logit)  for logit in paths[kk][::-1]]
 
-          # If there is an EOS symbol in outputs, cut them at that point.
-              if EOS_ID in foutputs:
-          #         # print outputs
-                   foutputs = foutputs[:foutputs.index(EOS_ID)]
-              rec = " ".join([tf.compat.as_str(rev_vocab[output]) for output in foutputs])
-              if rec not in recos:
-                      recos.add(rec)
-                      print rec
+                # If there is an EOS symbol in outputs, cut them at that point.
+                if EOS_ID in foutputs:
+                    foutputs = foutputs[:foutputs.index(EOS_ID)]
+                rec = " ".join([tf.compat.as_str(rev_vocab[output]) for output in foutputs])
+                if rec not in recos:
+                    recos.append(rec)
 
-          print("> ", "")
-          sys.stdout.flush()
-          sentence = sys.stdin.readline()
+            if FLAGS.formatted_output:
+                print sentence.rstrip() + '\t' + ':'.join(recos)
+            else:
+                for rec in recos:
+                    print rec
+
+            if not FLAGS.formatted_output:
+                sys.stdout.write("> ")
+                sys.stdout.flush()
+            sentence = sys.stdin.readline()
     else:
-        sys.stdout.write("> ")
-        sys.stdout.flush()
+        if not FLAGS.formatted_output:
+            sys.stdout.write("> ")
+            sys.stdout.flush()
         sentence = sys.stdin.readline()
 
         while sentence:
               # Get token-ids for the input sentence.
-              token_ids = sentence_to_token_ids(tf.compat.as_bytes(sentence), vocab)
+              token_ids = sentence_to_token_ids(tf.compat.as_bytes(sentence), vocab, tokenizer=tokenizer)
               # Which bucket does it belong to?
               bucket_id = min([b for b in xrange(len(_buckets))
                                if _buckets[b][0] > len(token_ids)])
@@ -306,9 +328,10 @@ def decode():
                   # print outputs
                   outputs = outputs[:outputs.index(EOS_ID)]
 
-              print(" ".join([tf.compat.as_str(rev_vocab[output]) for output in outputs]))
-              print("> ", "")
-              sys.stdout.flush()
+              print(sentence + '\t' + ":".join([tf.compat.as_str(rev_vocab[output]) for output in outputs]))
+              if not FLAGS.formatted_output:
+                  sys.stdout.write("> ")
+                  sys.stdout.flush()
               sentence = sys.stdin.readline()
 
 
