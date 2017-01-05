@@ -59,14 +59,23 @@ class NeuralChatBot:
         model.saver.restore(session, ckpt.model_checkpoint_path)
         return model
 
-    def reply(self, sentence):
+    def reply(self, sentence, max_chars=80, list_all=False):
         cands = self.decode(sentence)
-        cands_filtered = filter(lambda l: ('_UNK' not in l) and len(l) > 0, cands)
+        if list_all:
+            return ':'.join([''.join(l) for l in cands])
+        cands_filtered = filter(lambda l: ('_UNK' not in l) and len(l) > 0 and sum([len(x) for x in l]) <= max_chars, cands)
         if not cands_filtered:
             cands_filtered = cands
         if not cands_filtered:
             return ''
-        return ''.join(random.choice(cands_filtered))
+        out_ary = random.choice(cands_filtered)
+        out = ''
+        for w in out_ary:
+            if len(out + w) > max_chars:
+                return out
+            out = out + w
+
+        return out
 
     def decode(self, sentence):
         # Get token-ids for the input sentence.
@@ -120,9 +129,9 @@ class NeuralChatBot:
             
 
 if __name__ == "__main__":
-    chatbot = NeuralChatBot('ja_model_attn_adam/vocab.txt', 'ja_model_attn_adam', tokenizer=mecab_tokenizer)
+    chatbot = NeuralChatBot('ja_model/vocab.txt', 'ja_model', tokenizer=mecab_tokenizer, beam_size=50)
+    sys.stdout.write('> ')
     while True:
-        sys.stdout.write('> ')
-        line = sys.stdin.readline()
-        print chatbot.reply(line)
+        line = sys.stdin.readline().split('\t')[0]
+        print line.rstrip() + '\t' + chatbot.reply(line, list_all=True)
     
