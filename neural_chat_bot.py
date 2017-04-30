@@ -61,14 +61,16 @@ class NeuralChatBot:
 
     def reply(self, sentence, max_chars=80, list_all=False):
         cands = self.decode(sentence)
-        if list_all:
-            return ':'.join([''.join(l) for l in cands])
         cands_filtered = filter(lambda l: ('_UNK' not in l) and len(l) > 0 and sum([len(x) for x in l]) <= max_chars, cands)
         if not cands_filtered:
             cands_filtered = cands
         if not cands_filtered:
             return ''
-        out_ary = random.choice(cands_filtered)
+#        out_ary = random.choice(cands_filtered)
+        cands_filtered.sort(key=lambda l: -len(set(l)))
+        if list_all:
+            return ':'.join([''.join(l) for l in cands_filtered])
+        out_ary = random.choice(cands_filtered[:2])
         out = ''
         for w in out_ary:
             if len(out + w) > max_chars:
@@ -129,9 +131,9 @@ class NeuralChatBot:
             
 
 if __name__ == "__main__":
-    chatbot = NeuralChatBot('ja_model/vocab.txt', 'ja_model', tokenizer=mecab_tokenizer, beam_size=50)
+    chatbot = NeuralChatBot('ja_model/vocab.txt', 'ja_model', tokenizer=mecab_tokenizer, beam_size=100)
     sys.stdout.write('> ')
     while True:
         line = sys.stdin.readline().split('\t')[0]
-        print line.rstrip() + '\t' + chatbot.reply(line, list_all=True)
+        print line.rstrip() + '\t' + chatbot.reply(line, list_all=False)
     
