@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """Most of the code comes from seq2seq tutorial. Binary for training conversation models and decoding from them.
 
 Running this program without --decode will  tokenize it in a very basic way,
@@ -28,6 +30,7 @@ from  seq2seq_model import *
 import codecs
 
 from mecab_tokenizer import mecab_tokenizer
+from spm_tokenizer import spm_tokenizer
 
 class NeuralChatBot:
     def __init__(self, vocab_path, train_dir, beam_size=10, beam_search=True, attention=True, tokenizer=mecab_tokenizer):
@@ -43,8 +46,8 @@ class NeuralChatBot:
         self.vocab, self.rev_vocab = initialize_vocabulary(vocab_path)
 
     def create_model(self, session, forward_only, train_dir,
-                     beam_search = True, beam_size = 10, attention = True, size=512,
-                     en_vocab_size=200000, num_layers=3, max_gradient_norm = 5.0, batch_size = 1,
+                     beam_search = True, beam_size = 10, attention = True, size=128,
+                     en_vocab_size=16000, num_layers=3, max_gradient_norm = 5.0, batch_size = 1,
                      learning_rate=0.001, learning_rate_decay_factor=0.99,
                      max_to_keep=2, optimizer='sgd'):
         """Create translation model and initialize or load parameters in session."""
@@ -59,24 +62,33 @@ class NeuralChatBot:
         model.saver.restore(session, ckpt.model_checkpoint_path)
         return model
 
+    def choose_reply(self, cands):
+        scores = []
+        for cand in cands:
+            scores.append(len(set(''.join(cand).decode('utf-8'))) + 3 * len(cand))
+        r = random.randint(1, sum(scores))
+        acc_score = 0
+        for i,cand in enumerate(cands):
+            acc_score += scores[i]
+            if r <= acc_score:
+                return cand
+        return cands[0]
+
     def reply(self, sentence, max_chars=80, list_all=False):
         cands = self.decode(sentence)
-        cands_filtered = filter(lambda l: ('_UNK' not in l) and len(l) > 0 and sum([len(x) for x in l]) <= max_chars, cands)
+        cands_filtered = filter(lambda l: ('_UNK' not in l) and len(l) > 0 and sum([len(x.decode('utf-8')) for x in l]) <= max_chars, cands)
         if not cands_filtered:
             cands_filtered = cands
         if not cands_filtered:
             return ''
-#        out_ary = random.choice(cands_filtered)
-        cands_filtered.sort(key=lambda l: -len(set(l)))
-        if list_all:
-            return ':'.join([''.join(l) for l in cands_filtered])
-        out_ary = random.choice(cands_filtered[:2])
+        out_ary = self.choose_reply(cands_filtered)
         out = ''
         for w in out_ary:
             if len(out + w) > max_chars:
                 return out
             out = out + w
 
+        out = out.lstrip('▁').replace('▁', ' ')
         return out
 
     def decode(self, sentence):
@@ -92,8 +104,8 @@ class NeuralChatBot:
             {bucket_id: [(token_ids, [])]}, bucket_id)
         if self.beam_search:
             # Get output logits for the sentence.
-            path, symbol , output_logits = self.model.step(self.session, encoder_inputs, decoder_inputs,
-                                                      target_weights, bucket_id, True, self.beam_search )
+            path, symbol, output_logits = self.model.step(self.session, encoder_inputs, decoder_inputs,
+                                                          target_weights, bucket_id, True, self.beam_search )
 
             k = output_logits[0]
             paths = []
@@ -131,7 +143,7 @@ class NeuralChatBot:
             
 
 if __name__ == "__main__":
-    chatbot = NeuralChatBot('ja_model/vocab.txt', 'ja_model', tokenizer=mecab_tokenizer, beam_size=100)
+    chatbot = NeuralChatBot('ja_model_spm/vocab.txt', 'ja_model_spm', tokenizer=spm_tokenizer, beam_size=100)
     sys.stdout.write('> ')
     while True:
         line = sys.stdin.readline().split('\t')[0]

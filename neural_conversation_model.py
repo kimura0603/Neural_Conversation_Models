@@ -28,6 +28,7 @@ from  seq2seq_model import *
 import codecs
 
 from mecab_tokenizer import mecab_tokenizer
+from spm_tokenizer import spm_tokenizer
 
 tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
 tf.app.flags.DEFINE_float("learning_rate_decay_factor", 0.99,
@@ -58,7 +59,7 @@ tf.app.flags.DEFINE_boolean("attention", False,
 tf.app.flags.DEFINE_boolean("self_test", False,
                             "Run a self-test if this is set to True.")
 tf.app.flags.DEFINE_string("tokenizer", None,
-                           "Tokenizer to use. mecab/others")
+                           "Tokenizer to use. mecab/spm/others")
 tf.app.flags.DEFINE_integer("max_to_keep", 5,
                            "Number of ckpts to keep")
 tf.app.flags.DEFINE_boolean("formatted_output", False,
@@ -75,6 +76,8 @@ _buckets = [(5, 10), (10, 15), (20, 25), (40, 50)]
 tokenizer = None
 if FLAGS.tokenizer == 'mecab':
     tokenizer = mecab_tokenizer
+elif FLAGS.tokenizer == 'spm':
+    tokenizer = spm_tokenizer
 
 def read_chat_data(data_path,vocabulary_path, max_size=None):
     counter = 0
@@ -118,7 +121,7 @@ def create_model(session, forward_only, beam_search, beam_size = 10, attention =
 
   # ckpt.model_checkpoint_path ="./big_models/chat_bot.ckpt-183600"
   # print ckpt.model_checkpoint_path
-#  if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
+  #  if ckpt and tf.gfile.Exists(ckpt.model_checkpoint_path):
   if ckpt:
     print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
     model.saver.restore(session, ckpt.model_checkpoint_path)
