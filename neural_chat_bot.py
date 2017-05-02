@@ -64,8 +64,8 @@ class NeuralChatBot:
 
     def choose_reply(self, cands):
         scores = []
-        for cand in cands:
-            scores.append(len(set(''.join(cand).decode('utf-8'))) + 3 * len(cand))
+        for i, cand in enumerate(cands):
+            scores.append(len(cands) - i + len(''.join(cand).decode('utf-8')) + len(cand))
         r = random.randint(1, sum(scores))
         acc_score = 0
         for i,cand in enumerate(cands):
@@ -76,7 +76,7 @@ class NeuralChatBot:
 
     def reply(self, sentence, max_chars=80, list_all=False):
         cands = self.decode(sentence)
-        cands_filtered = filter(lambda l: ('_UNK' not in l) and len(l) > 0 and sum([len(x.decode('utf-8')) for x in l]) <= max_chars, cands)
+        cands_filtered = filter(lambda l: ('_UNK' not in l) and (':' not in ''.join(l)) and len(l) > 0 and sum([len(x.decode('utf-8')) for x in l]) <= max_chars, cands)
         if not cands_filtered:
             cands_filtered = cands
         if not cands_filtered:
@@ -88,6 +88,8 @@ class NeuralChatBot:
                 return out
             out = out + w
 
+        if list_all:
+            out = '/'.join([''.join(x) for x in cands_filtered]) + '->' + out
         out = out.lstrip('▁').replace('▁', ' ')
         return out
 
@@ -147,5 +149,5 @@ if __name__ == "__main__":
     sys.stdout.write('> ')
     while True:
         line = sys.stdin.readline().split('\t')[0]
-        print line.rstrip() + '\t' + chatbot.reply(line, list_all=False)
+        print line.rstrip() + '\t' + chatbot.reply(line, list_all=True)
     

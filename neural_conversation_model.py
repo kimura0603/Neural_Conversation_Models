@@ -66,6 +66,8 @@ tf.app.flags.DEFINE_boolean("formatted_output", False,
                            "TSV output in decoding")
 tf.app.flags.DEFINE_string("optimizer", "sgd",
                            "sgd/adagrad/adam")
+tf.app.flags.DEFINE_string("nsteps", None,
+                           "number of steps")
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -189,6 +191,8 @@ def train():
     current_step = 0
     previous_losses = []
     while True:
+      if FLAGS.nsteps and current_step >= FLAGS.nsteps:
+          break
       # Choose a bucket according to data distribution. We pick a random number
       # in [0, 1] and use the corresponding interval in train_buckets_scale.
       # print "Started"
