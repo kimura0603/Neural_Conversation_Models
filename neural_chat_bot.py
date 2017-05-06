@@ -46,7 +46,7 @@ class NeuralChatBot:
         self.vocab, self.rev_vocab = initialize_vocabulary(vocab_path)
 
     def create_model(self, session, forward_only, train_dir,
-                     beam_search = True, beam_size = 10, attention = True, size=128,
+                     beam_search = True, beam_size = 10, attention = True, size=512,
                      en_vocab_size=16000, num_layers=3, max_gradient_norm = 5.0, batch_size = 1,
                      learning_rate=0.001, learning_rate_decay_factor=0.99,
                      max_to_keep=2, optimizer='sgd'):
@@ -85,11 +85,12 @@ class NeuralChatBot:
         out = ''
         for w in out_ary:
             if len(out + w) > max_chars:
-                return out
+                break
             out = out + w
 
         if list_all:
             out = '/'.join([''.join(x) for x in cands_filtered]) + '->' + out
+        print '/'.join([''.join(x) for x in cands_filtered]) + '->' + out
         out = out.lstrip('▁').replace('▁', ' ')
         return out
 
