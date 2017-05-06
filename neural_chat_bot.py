@@ -20,6 +20,7 @@ import os
 import random
 import sys
 import time
+import re
 
 import numpy as np
 from six.moves import xrange  # pylint: disable=redefined-builtin
@@ -88,10 +89,11 @@ class NeuralChatBot:
                 break
             out = out + w
 
+        out = out.lstrip('▁').replace('▁', ' ')
+        out = re.sub(u'[「」（）\(\)]', '', out.decode('utf-8')).encode('utf-8')
         if list_all:
             out = '/'.join([''.join(x) for x in cands_filtered]) + '->' + out
         print '/'.join([''.join(x) for x in cands_filtered]) + '->' + out
-        out = out.lstrip('▁').replace('▁', ' ')
         return out
 
     def decode(self, sentence):
