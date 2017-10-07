@@ -34,7 +34,7 @@ from mecab_tokenizer import mecab_tokenizer
 from spm_tokenizer import spm_tokenizer
 
 class NeuralChatBot:
-    def __init__(self, vocab_path, train_dir, beam_size=10, beam_search=True, attention=True, tokenizer=mecab_tokenizer):
+    def __init__(self, vocab_path, train_dir, beam_size=10, beam_search=True, attention=False, tokenizer=mecab_tokenizer):
         self.beam_search = beam_search
         self.beam_size = beam_size
         self.tokenizer = tokenizer

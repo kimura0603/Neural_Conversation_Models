@@ -16,7 +16,7 @@ auth = tweepy.OAuthHandler(CK, CS)
 auth.set_access_token(AT, AS)
 api = tweepy.API(auth, wait_on_rate_limit=True)
 api_stream = tweepy.API(auth, wait_on_rate_limit=True)
-chatbot = NeuralChatBot('ja_model/vocab.txt', 'ja_model', beam_size=100)
+chatbot = NeuralChatBot('ja_model_spm/vocab.txt', 'ja_model_spm', beam_size=100)
 last_reply = defaultdict(int)
 seen_tid = set()
 status_ids_i_replied = set()
@@ -126,7 +126,7 @@ for k, v in last_reply.iteritems():
 print_log('Ready')        
 
 while True:
-    time.sleep(600)
+    time.sleep(60)
     catch_up = True
 
     try:
